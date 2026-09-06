@@ -11,6 +11,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Add 4GB Swap Space (The Ultimate OOM Fix)
+        run: |
+          sudo fallocate -l 4G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -25,13 +32,10 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Setup Android SDK Environment
-        uses: android-actions/setup-android@v3
-
       - name: Install Dependencies
         run: npm install
 
-      - name: Prevent Expo Image-Utils Error (Create Fallback Assets)
+      - name: Prevent Expo Image-Utils Error
         run: |
           mkdir -p assets
           PNG_B64="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
@@ -43,24 +47,21 @@ jobs:
         run: npx expo prebuild --platform android --clean
         env:
           EXPO_NO_TELEMETRY: 1
+          NODE_OPTIONS: "--max-old-space-size=4096"
 
-      - name: Configure Gradle Memory Limits (Fix OOM Crash)
+      - name: Configure Strict Gradle Limits (Single Thread)
         working-directory: ./android
         run: |
-          echo "org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1024m" >> gradle.properties
+          echo "org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC" >> gradle.properties
           echo "org.gradle.daemon=false" >> gradle.properties
-          echo "org.gradle.parallel=true" >> gradle.properties
-          echo "org.gradle.workers.max=2" >> gradle.properties
-
-      - name: Grant Execute Permissions to Gradle
-        working-directory: ./android
-        run: chmod +x ./gradlew
+          echo "org.gradle.parallel=false" >> gradle.properties
+          echo "org.gradle.workers.max=1" >> gradle.properties
 
       - name: Build APK (Release)
         working-directory: ./android
-        run: ./gradlew assembleRelease --stacktrace --max-workers=2
+        run: chmod +x ./gradlew && ./gradlew assembleRelease --stacktrace
         env:
-          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3072m"
+          NODE_OPTIONS: "--max-old-space-size=4096"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
