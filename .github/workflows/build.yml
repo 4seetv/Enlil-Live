@@ -27,12 +27,26 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      - name: Prevent Expo Image-Utils Error (Create Fallback Assets)
+        run: |
+          mkdir -p assets
+          # توليد صور فارغة مؤقتة لتمرير عملية البناء في حال لم تقم برفع أيقوناتك بعد
+          if [ ! -f assets/icon.png ]; then convert -size 512x512 xc:"#007AFF" assets/icon.png; fi
+          if [ ! -f assets/adaptive-icon.png ]; then convert -size 512x512 xc:"#007AFF" assets/adaptive-icon.png; fi
+          if [ ! -f assets/splash.png ]; then convert -size 1242x2688 xc:"#F2F2F7" assets/splash.png; fi
+
       - name: Generate Android Folder
         run: npx expo prebuild --platform android --clean
+        env:
+          EXPO_NO_TELEMETRY: 1
+
+      - name: Grant Execute Permissions to Gradle
+        working-directory: ./android
+        run: chmod +x ./gradlew
 
       - name: Build APK
         working-directory: ./android
-        run: bash ./gradlew assembleRelease
+        run: ./gradlew assembleRelease
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
