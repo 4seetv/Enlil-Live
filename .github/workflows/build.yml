@@ -24,16 +24,12 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
-          # تمت إزالة cache: 'gradle' لأن مجلد الأندرويد لا يكون موجوداً في هذه المرحلة
 
       - name: Setup Android SDK Environment
         uses: android-actions/setup-android@v3
 
       - name: Install Dependencies
         run: npm install
-
-      - name: Fix Expo Dependencies (Align Versions)
-        run: npx expo install --fix
 
       - name: Prevent Expo Image-Utils Error (Create Fallback Assets)
         run: |
@@ -48,13 +44,23 @@ jobs:
         env:
           EXPO_NO_TELEMETRY: 1
 
+      - name: Configure Gradle Memory Limits (Fix OOM Crash)
+        working-directory: ./android
+        run: |
+          echo "org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1024m" >> gradle.properties
+          echo "org.gradle.daemon=false" >> gradle.properties
+          echo "org.gradle.parallel=true" >> gradle.properties
+          echo "org.gradle.workers.max=2" >> gradle.properties
+
       - name: Grant Execute Permissions to Gradle
         working-directory: ./android
         run: chmod +x ./gradlew
 
       - name: Build APK (Release)
         working-directory: ./android
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+        run: ./gradlew assembleRelease --stacktrace --max-workers=2
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3072m"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
