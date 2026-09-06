@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch: # يتيح لك تشغيل البناء يدوياً من واجهة GitHub بضغطة زر
 
 jobs:
   build:
@@ -23,20 +24,26 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
+          cache: 'gradle' # لتسريع عمليات البناء القادمة
+
+      - name: Setup Android SDK Environment
+        uses: android-actions/setup-android@v3
 
       - name: Install Dependencies
         run: npm install
 
+      - name: Fix Expo Dependencies (Align Versions)
+        run: npx expo install --fix
+
       - name: Prevent Expo Image-Utils Error (Create Fallback Assets)
         run: |
           mkdir -p assets
-          # إنشاء صورة PNG صالحة بحجم 1x1 بكسل عبر Base64 لتجنب أي حاجة لأدوات خارجية
           PNG_B64="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
           if [ ! -f assets/icon.png ]; then echo "$PNG_B64" | base64 -d > assets/icon.png; fi
           if [ ! -f assets/adaptive-icon.png ]; then echo "$PNG_B64" | base64 -d > assets/adaptive-icon.png; fi
           if [ ! -f assets/splash.png ]; then echo "$PNG_B64" | base64 -d > assets/splash.png; fi
 
-      - name: Generate Android Folder
+      - name: Generate Android Folder (Prebuild)
         run: npx expo prebuild --platform android --clean
         env:
           EXPO_NO_TELEMETRY: 1
@@ -45,9 +52,10 @@ jobs:
         working-directory: ./android
         run: chmod +x ./gradlew
 
-      - name: Build APK
+      - name: Build APK (Release)
         working-directory: ./android
-        run: ./gradlew assembleRelease
+        # استخدام no-daemon يمنع انهيار الذاكرة ومشاكل التزامن في سيرفرات CI
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
