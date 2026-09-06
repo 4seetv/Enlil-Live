@@ -11,13 +11,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Add 4GB Swap Space (The Ultimate OOM Fix)
-        run: |
-          sudo fallocate -l 4G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -49,10 +42,10 @@ jobs:
           EXPO_NO_TELEMETRY: 1
           NODE_OPTIONS: "--max-old-space-size=4096"
 
-      - name: Configure Strict Gradle Limits (Single Thread)
+      - name: Configure Strict Gradle Limits (Perfect Balance)
         working-directory: ./android
         run: |
-          echo "org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC" >> gradle.properties
+          echo "org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m -XX:+UseG1GC" >> gradle.properties
           echo "org.gradle.daemon=false" >> gradle.properties
           echo "org.gradle.parallel=false" >> gradle.properties
           echo "org.gradle.workers.max=1" >> gradle.properties
@@ -62,6 +55,7 @@ jobs:
         run: chmod +x ./gradlew && ./gradlew assembleRelease --stacktrace
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2048m"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
